@@ -1,0 +1,26 @@
+[
+  {
+    "id": "9001",
+    "user": "42",
+    "service": "patreon",
+    "title": "素描近况",
+    "content": "DO-NOT-LEAK-BODY",
+    "published": "2026-04-01T00:00:00",
+    "added": "2026-04-01T01:00:00",
+    "attachments": [{"name": "sketch.jpg", "path": "/data/do-not-fetch.jpg"}]
+  },
+  {
+    "id": "9000",
+    "user": "42",
+    "service": "patreon",
+    "title": "旧草稿",
+    "published": "2026-01-01T00:00:00"
+  },
+  {
+    "id": "1",
+    "user": "999",
+    "service": "patreon",
+    "title": "别人的帖子",
+    "published": "2026-04-02T00:00:00"
+  }
+]
