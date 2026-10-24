@@ -74,8 +74,71 @@ def test_challenge_is_not_solved():
 
 def test_age_gate_fails_loudly():
     html = "<html><body><h1>年龄确认</h1><p>已满18岁才能继续</p></body></html>"
-    with pytest.raises(AuthRequired, match="age gate"):
+    with pytest.raises(AuthRequired, match="age gate") as caught:
         parse_actor_page(html, "https://javdb.com/actors/Ab12Cd")
+    assert "JAVDB_COOKIE" in str(caught.value)
+    assert "over18=1" in str(caught.value)
+
+
+def test_rejected_cookie_on_age_gate_still_mentions_over18():
+    html = "<html><body><h1>年龄确认</h1><p>已满18岁才能继续</p></body></html>"
+    with pytest.raises(AuthRequired, match="over18=1") as caught:
+        parse_actor_page(html, "https://javdb.com/actors/Ab12Cd", had_cookie=True)
+    assert "not accepted" in str(caught.value)
+
+
+def test_over18_modal_with_jsd_script_is_auth_required_not_a_challenge():
+    html = """
+    <html><body>
+      <script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script>
+      <div class="modal is-active">
+        <h1>年齡確認</h1>
+        <p>你是否已滿18歲？</p>
+        <button>我已年滿18歲</button>
+      </div>
+    </body></html>
+    """
+    with pytest.raises(AuthRequired, match="age gate") as caught:
+        parse_actor_search(html, "https://javdb.com/search?f=actor&q=x")
+    message = str(caught.value)
+    assert "JAVDB_COOKIE" in message
+    assert "over18=1" in message
+    with pytest.raises(AuthRequired, match="over18=1"):
+        parse_actor_page(html, "https://javdb.com/actors/Ab12Cd")
+
+
+def test_search_parses_hits_when_the_page_only_embeds_the_jsd_script():
+    html = _read("javdb_search.html").replace(
+        "<body>",
+        '<body><script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script>',
+        1,
+    )
+    hits = parse_actor_search(html, "https://javdb.com/search?f=actor&q=x")
+    assert [hit.actor_id for hit in hits] == ["Ab12Cd", "Ef34Gh"]
+
+
+def test_actor_page_parses_when_the_page_only_embeds_the_hashed_jsd_script():
+    html = _read("javdb_actor.html").replace(
+        "<body>",
+        '<body><script src="/cdn-cgi/challenge-platform/h/b/scripts/jsd/main.js"></script>',
+        1,
+    )
+    page = parse_actor_page(html, "https://javdb.com/actors/Ab12Cd")
+    assert [work.code for work in page.works] == ["ABCD-001", "FC2-PPV-100200", None]
+
+
+def test_real_challenge_is_not_treated_as_an_age_gate():
+    html = """
+    <html><head><title>Just a moment...</title></head>
+    <body>
+      <script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script>
+      <script src="/cdn-cgi/challenge-platform/h/g/orchestrate/chl_page/v1"></script>
+      <div class="cf-challenge"></div>
+      <p>已滿18</p>
+    </body></html>
+    """
+    with pytest.raises(ChallengeDetected, match="challenge"):
+        parse_actor_search(html, "https://javdb.com/search?f=actor&q=x")
 
 
 def test_search_keeps_censored_and_uncensored_cards():

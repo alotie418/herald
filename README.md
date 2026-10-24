@@ -167,7 +167,7 @@ Debian/Ubuntu 自带的 cron 通常不认识 `CRON_TZ`。日志目录要先存�
 
 JavDB 对同一主机至少间隔 **5 秒**，这个下限不能通过配置调低。其它主机用 `http.min_delay_seconds`（默认 2 秒，最小 0.5 秒）。同一轮里如果某主机返回 403、429 或 503，这一轮不再请求该主机，也不会换指纹或换节点去绕。
 
-演员页或搜索页如果变成登录页、年龄门或验证页，检查会失败且**不会**把空结果记成已读。可选的 `JAVDB_COOKIE` 只应填你自己在浏览器里已经拿到的 cookie：
+演员页或搜索页如果变成登录页、年龄门或验证页，检查会失败且**不会**把空结果记成已读。可选的 `JAVDB_COOKIE` 只应填你自己在浏览器里已经拿到的 cookie。在页面上确认已满 18 岁之后，这段 cookie 里会有 `over18=1`，把当时的整段贴进来即可；Herald 不会替你点年龄确认：
 
 ```bash
 herald config set credentials.javdb_cookie 'paste-from-your-browser'

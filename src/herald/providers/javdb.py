@@ -6,6 +6,9 @@ the work link, and a cover URL when the card already has one. The image itself
 is not saved, and is fetched only while sending a Telegram photo.
 
 Login pages, age gates, and bot challenges fail instead of being solved.
+The over-18 modal is an age gate: put the cookie your own browser stored
+after you confirmed your age into ``JAVDB_COOKIE`` (it includes ``over18=1``).
+Herald will not click that modal or solve a captcha.
 """
 
 from __future__ import annotations
@@ -158,11 +161,17 @@ def _raise_for_empty_wall(html: str, final_url: str, *, had_cookie: bool) -> Non
         )
         raise AuthRequired(f"JavDB returned a login page. {hint} Herald will not sign up or bypass it.")
     if looks_like_age_gate(html):
-        hint = (
-            "The saved JavDB cookie was not accepted."
-            if had_cookie
-            else "Set JAVDB_COOKIE to a cookie from your own browser, or pick a page that is public."
-        )
+        if had_cookie:
+            hint = (
+                "The saved JavDB cookie was not accepted. "
+                "Paste the cookie from your own browser again after confirming your age; "
+                "it should include over18=1."
+            )
+        else:
+            hint = (
+                "Set JAVDB_COOKIE to the cookie from your own browser after you confirm "
+                "you are over 18. That cookie includes over18=1. Herald will not click the age gate."
+            )
         raise AuthRequired(f"JavDB returned an age gate. {hint}")
 
 
