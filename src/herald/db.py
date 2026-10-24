@@ -282,6 +282,19 @@ class Database:
                 ],
             )
 
+    def list_search(self) -> list[ActorHit]:
+        rows = self._conn.execute("SELECT * FROM search_hits ORDER BY position")
+        return [
+            ActorHit(
+                actor_id=row["actor_id"],
+                name=row["name"],
+                aliases=row["aliases"],
+                marker=row["marker"],
+                url=row["url"],
+            )
+            for row in rows
+        ]
+
     def get_search_hit(self, position: int) -> ActorHit | None:
         row = self._conn.execute(
             "SELECT * FROM search_hits WHERE position = ?", (position,)

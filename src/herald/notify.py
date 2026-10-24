@@ -139,6 +139,24 @@ class TelegramNotifier:
             raise HeraldError(f"Telegram request failed ({type(exc).__name__})") from exc
         self._raise_for_status(response, photo=False)
 
+    def get_updates(self, *, offset: int | None, timeout: int) -> list[dict]:
+        url = f"https://api.telegram.org/bot{self._token}/getUpdates"
+        payload: dict[str, object] = {"timeout": timeout, "allowed_updates": ["message"]}
+        if offset is not None:
+            payload["offset"] = offset
+        try:
+            response = self._client.post(url, json=payload)
+        except httpx.HTTPError as exc:
+            raise HeraldError(f"Telegram request failed ({type(exc).__name__})") from exc
+        self._raise_for_status(response, photo=False)
+        try:
+            body = response.json()
+        except Exception as exc:
+            raise HeraldError("Telegram getUpdates was not JSON") from exc
+        if body.get("ok") is not True or not isinstance(body.get("result"), list):
+            raise HeraldError("Telegram getUpdates returned no update list")
+        return body["result"]
+
     def fetch_cover(self, url: str) -> tuple[bytes, str]:
         if usable_cover_url(url) is None or not is_clean_https(url):
             raise CoverUnavailable("cover URL is not a plain https URL")

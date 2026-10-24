@@ -13,7 +13,11 @@ from herald.secure import harden_dir
 
 
 @contextmanager
-def file_lock(path: Path) -> Iterator[None]:
+def file_lock(
+    path: Path,
+    *,
+    message: str = "another herald check is already running",
+) -> Iterator[None]:
     harden_dir(path.parent)
     fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
     os.chmod(path, 0o600)
@@ -21,7 +25,7 @@ def file_lock(path: Path) -> Iterator[None]:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError as exc:
         os.close(fd)
-        raise AlreadyRunning("another herald check is already running") from exc
+        raise AlreadyRunning(message) from exc
     try:
         yield
     finally:

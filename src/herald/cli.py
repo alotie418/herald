@@ -21,7 +21,9 @@ from herald.config import (
     set_values,
 )
 from herald.db import Database
+from herald.bot import run_bot
 from herald.errors import AlreadyRunning, ConfigError, HeraldError
+from herald.feeds import add_javdb_feed
 from herald.http import make_client
 from herald.lockfile import file_lock
 from herald.notify import TelegramNotifier
@@ -103,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check.add_argument("--quiet", action="store_true", help="print new items and the errors only")
     check.set_defaults(func=cmd_check)
+
+    bot = sub.add_parser(
+        "bot",
+        help="subscribe to JavDB actresses from Telegram messages (does not run check)",
+    )
+    bot.set_defaults(func=cmd_bot)
 
     config = sub.add_parser("config", help="local configuration")
     config_sub = config.add_subparsers(dest="config_cmd", required=True)
@@ -211,24 +219,17 @@ def cmd_feed_add(args: argparse.Namespace) -> int:
     title = _optional_title(args.name)
     with Database(data_dir() / "herald.db") as db:
         if args.javdb_actor:
-            actor_id, url = parse_actor_ref(args.javdb_actor, settings.javdb_base)
+            actor_id = args.javdb_actor
         elif args.ref.isdigit():
             hit = db.get_search_hit(int(args.ref))
             if hit is None:
                 raise HeraldError("no search result with that number; run `herald feed search` first")
-            actor_id, url = parse_actor_ref(hit.actor_id, settings.javdb_base)
+            actor_id = hit.actor_id
             if title is None:
                 title = hit.name
         else:
-            actor_id, url = parse_actor_ref(args.ref, settings.javdb_base)
-        sub, created = db.add_subscription(
-            kind="feed",
-            provider="javdb",
-            target=actor_id,
-            url=url,
-            title=title,
-            now=utc_now(),
-        )
+            actor_id = args.ref
+        sub, created = add_javdb_feed(db, settings, actor_id, title)
     if created:
         print(f"added feed #{sub.id} javdb {sub.url}")
     else:
@@ -262,6 +263,36 @@ def cmd_check(args: argparse.Namespace) -> int:
                 print(f"sleeping {args.loop:g} minutes", file=sys.stderr)
             time.sleep(args.loop * 60)
     return run_once(args)
+
+
+def cmd_bot(_args: argparse.Namespace) -> int:
+    settings = load_settings()
+    if not settings.telegram_token or not settings.telegram_chat_id:
+        raise ConfigError("herald bot needs both a Telegram token and a chat id")
+    try:
+        with file_lock(data_dir() / "bot.lock", message="another herald bot is already running"):
+            _run_bot(settings)
+    except AlreadyRunning as exc:
+        print(f"skip: {exc}", file=sys.stderr)
+        return 0
+    return 0
+
+
+def _run_bot(settings) -> None:
+    notifier = TelegramNotifier(
+        settings.telegram_token,
+        settings.telegram_chat_id,
+        timeout=max(settings.timeout_seconds, 50),
+    )
+    try:
+        with Database(data_dir() / "herald.db") as db, make_client(settings) as client:
+
+            def search(name: str):
+                return search_actors(client, settings, name)
+
+            run_bot(settings, db, notifier, search)
+    finally:
+        notifier.close()
 
 
 def cmd_config_show(_args: argparse.Namespace) -> int:

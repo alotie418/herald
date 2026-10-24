@@ -87,6 +87,8 @@ herald check --dry-run
 herald check --quiet
 herald check --notify-existing
 herald check --loop 120
+
+herald bot
 ```
 
 `follow add` 和 `feed add` 只记订阅，不访问网站。第一次成功的 `check` 会把当时页面上的条目记为已读，**不发通知**，避免把整页历史当成新内容。之后出现的新 id 或新番号才会推送。若确实想把第一眼看到的内容也推送，加上 `--notify-existing`。
@@ -94,6 +96,22 @@ herald check --loop 120
 `feed search` 可能返回同一名字的多张卡（常见是有码、无码各一张）。Herald 不会替你选，用编号或 `--javdb-actor` 指定。纯数字的 `feed add 1` 表示上一次搜索的第 1 条；演员 id 若恰好是数字，请用 `--javdb-actor`。
 
 `check` 会抢一把本地锁。另一轮还在跑时，本次直接退出 0，并在标准错误写一行 `skip`，方便 cron 重叠时不重复发消息。
+
+## 在 Telegram 里订阅演员
+
+`herald bot` 用长轮询 `getUpdates` 听已配置的那一个 chat id，其它对话直接忽略。在对话里发送演员名，走和 `herald feed search` / `herald feed add` 相同的订阅：
+
+- 只找到一张卡：立刻订阅。
+- 找到多张：回复序号再订阅。有码和无码不会自动选。
+- `/list` 查看已订阅的 JavDB 演员。
+- `/cancel` 放弃当前序号。
+- `/start` 和 `/help` 查看说明。
+
+这个进程不跑 `check`，也不打开演员作品页。新番号仍由 cron 里的 `herald check` 发出。同一个 bot token 不要再开第二个 `getUpdates`。另一轮 `herald bot` 看到自己的锁就退出 0。
+
+```bash
+herald bot
+```
 
 `--loop 120` 是内置的固定间隔循环（至少 5 分钟），不依赖 APScheduler。更稳妥的做法是用 cron 调用一次性的 `check`。不要同时开着 `--loop` 和 cron。
 
